@@ -395,7 +395,7 @@ def main(argv: list[str] | None = None) -> int:
 
     httpd = ThreadingHTTPServer((args.host, args.port), Handler)
     print(f"LexBot running at http://{args.host}:{args.port}  (Ctrl+C to stop)")
-    print(f"User database: {DB_PATH}")
+    print(f"User database: {AUTH.location}")
     print(f"AI answers: {'on (' + AI.model + ')' if AI.available else 'off - ' + AI.reason}")
     try:
         httpd.serve_forever()

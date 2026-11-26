@@ -22,6 +22,11 @@ sys.path.insert(0, str(BACKEND))
 os.environ.setdefault("LEXBOT_DB", "/tmp/lexbot.db")
 os.environ.setdefault("LEXBOT_SECURE_COOKIE", "1")
 
+if not os.environ.get("TURSO_DATABASE_URL"):
+    sys.stderr.write("WARNING: TURSO_DATABASE_URL is not set. Accounts are kept in /tmp on each "
+                     "Vercel instance, so sign-ins will fail or log out at random. "
+                     "Connect a Turso database (see README).\n")
+
 try:
     from server import Handler as _Base
     STARTUP_ERROR = None

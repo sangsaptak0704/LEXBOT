@@ -29,6 +29,20 @@ python3 server.py --port 9000     # use a different port
 
 The backend serves the frontend too, so one command runs both.
 
+### Deploy on Vercel
+
+1. Import the GitHub repo in Vercel with **Root Directory** `./` and **Application Preset** *Other*.
+   `vercel.json` routes every request to `api/index.py`, which runs the same backend.
+2. Accounts need a shared database, because Vercel runs several short-lived copies of the
+   app. Create a free [Turso](https://turso.tech) database and add these environment
+   variables in Vercel (the Turso integration in the Vercel Marketplace adds them for you):
+   - `TURSO_DATABASE_URL` - e.g. `libsql://lexbot-yourname.turso.io`
+   - `TURSO_AUTH_TOKEN` - a database token
+3. Optional: `GEMINI_API_KEY` for AI answers. Redeploy after changing variables.
+
+Without Turso, sign-in on Vercel fails or logs out at random. Locally nothing changes: with
+no `TURSO_DATABASE_URL`, accounts stay in `backend/instance/lexbot.db`.
+
 ### Accounts
 
 Open the app and choose **Sign up** to create an account (name, email, password of at least

@@ -1,6 +1,7 @@
 """User accounts for the LexBot web app (standard library only).
 
-* Users and login sessions live in SQLite.
+* Users and login sessions live in SQLite: a local file, or a hosted Turso database when
+  TURSO_DATABASE_URL and TURSO_AUTH_TOKEN are set (needed on serverless hosts like Vercel).
 * Passwords are hashed with scrypt and a per-user random salt; plain passwords are never stored.
 * A login session is a random token sent to the browser in an HttpOnly cookie. Only its
   SHA-256 hash is stored, so a leaked database can't be used to log in.
@@ -12,6 +13,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import os
 import re
 import secrets
 import sqlite3
@@ -103,11 +105,18 @@ class LoginLimiter:
 # -------------------------------------------------------------------- store
 class AuthStore:
     def __init__(self, path: str | Path):
-        path = Path(path)
-        if str(path) != ":memory:":
-            path.parent.mkdir(parents=True, exist_ok=True)
-        self._db = sqlite3.connect(str(path), check_same_thread=False)
-        self._db.row_factory = sqlite3.Row
+        turso_url = os.environ.get("TURSO_DATABASE_URL", "").strip()
+        if turso_url and str(path) != ":memory:":
+            from turso import TursoConnection
+            self._db = TursoConnection(turso_url, os.environ.get("TURSO_AUTH_TOKEN", ""))
+            self.location = "Turso " + turso_url
+        else:
+            path = Path(path)
+            if str(path) != ":memory:":
+                path.parent.mkdir(parents=True, exist_ok=True)
+            self._db = sqlite3.connect(str(path), check_same_thread=False)
+            self._db.row_factory = sqlite3.Row
+            self.location = str(path)
         self._lock = threading.Lock()
         with self._lock, self._db:
             self._db.executescript("""
