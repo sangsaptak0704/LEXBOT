@@ -17,6 +17,9 @@ Configuration (environment variables, or backend/.env):
     LEXBOT_AI_FALLBACK_MODELS comma-separated models to try when the main one is busy or
                              unavailable (default: see DEFAULT_FALLBACKS; "none" to disable)
     LEXBOT_AI_DAILY_LIMIT    AI answers per user per day (default: 200)
+    LEXBOT_AI_TIME_BUDGET    seconds one question may spend waiting for Gemini, across all
+                             models, before falling back to the rule-based answer (default: 25;
+                             keeps replies inside serverless time limits such as Vercel's)
 """
 
 from __future__ import annotations
@@ -38,6 +41,8 @@ DEFAULT_MODEL = "gemini-3.8-flash"     # a pinned stable model, as Google recomm
 DEFAULT_FALLBACKS = ("gemini-3.7-flash,gemini-3.5-flash,gemini-3.5-flash-lite,"
                      "gemini-2.5-flash,gemini-2.5-flash-lite")
 RETRY_DELAY = 1.0                       # seconds before retrying a busy model once
+MAX_CALL_SECONDS = 60                   # longest single request to Gemini
+MIN_CALL_SECONDS = 3                    # don't start a call with less time than this left
 API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
 # Languages the user can ask AI answers in (code -> name used in the prompt).
 LANGUAGES = {"en": "English", "hi": "Hindi", "bn": "Bengali", "ta": "Tamil", "te": "Telugu",
@@ -114,6 +119,8 @@ class AIWriter:
         self.fallback_models = [] if fallbacks.lower() == "none" else [
             m.strip() for m in fallbacks.split(",") if m.strip() and m.strip() != self.model]
         self.daily_limit = int(os.environ.get("LEXBOT_AI_DAILY_LIMIT", "200"))
+        self.time_budget = float(os.environ.get("LEXBOT_AI_TIME_BUDGET", "25"))
+        self._call = threading.local()   # per-request deadline (the server is multi-threaded)
         self._key = _api_key()
         self._usage: dict[tuple[int, str], int] = {}
         self._lock = threading.Lock()
@@ -146,7 +153,10 @@ class AIWriter:
             url, data=json.dumps(body).encode("utf-8"), method="POST",
             headers={"Content-Type": "application/json", "x-goog-api-key": self._key})
         try:
-            with urllib.request.urlopen(req, timeout=60) as res:
+            deadline = getattr(self._call, "deadline", None)
+            timeout = MAX_CALL_SECONDS if deadline is None else \
+                max(1.0, min(MAX_CALL_SECONDS, deadline - time.monotonic()))
+            with urllib.request.urlopen(req, timeout=timeout) as res:
                 return json.loads(res.read().decode("utf-8"))
         except urllib.error.HTTPError as err:
             try:
@@ -207,7 +217,12 @@ class AIWriter:
         last_error: AIError | None = None
         # Try the main model, then each fallback model.
         models = [self.model, *self.fallback_models]
+        deadline = time.monotonic() + self.time_budget
+        self._call.deadline = deadline
         for index, model in enumerate(models):
+            if deadline - time.monotonic() < MIN_CALL_SECONDS:
+                last_error = AIError("The AI service took too long to answer")
+                break
             url = f"{API_BASE}/{urllib.parse.quote(model, safe='.-_')}:generateContent"
             # An overloaded model gets a second try only when no other model is left to try.
             attempts = 2 if index == len(models) - 1 else 1
@@ -218,11 +233,13 @@ class AIWriter:
                 except AIError as err:
                     last_error = err
                     log.warning("Gemini model %s failed: %s", model, err)
-                    if not err.retry or attempt + 1 == attempts:
+                    if (not err.retry or attempt + 1 == attempts
+                            or deadline - time.monotonic() < MIN_CALL_SECONDS + RETRY_DELAY):
                         break
                     time.sleep(RETRY_DELAY)
             if data is not None or not (last_error and last_error.next_model):
                 break
+        self._call.deadline = None
         if data is None:
             return None, f"{last_error}; showing the rule-based answer."
 
