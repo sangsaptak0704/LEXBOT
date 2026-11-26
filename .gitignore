@@ -1,0 +1,17 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+*.dot
+*.png
+backend/instance/
+*.db
+!frontend/assets/*.png
+backend/.env
+
+# secrets / API-key config - never commit
+.env
+.env.*
+**/.env
+**/.env.*

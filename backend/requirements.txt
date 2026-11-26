@@ -1,0 +1,2 @@
+# The full dependency list lives in the project root: ../requirements.txt
+-r ../requirements.txt

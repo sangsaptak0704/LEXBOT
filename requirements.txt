@@ -1,0 +1,12 @@
+# LexBot - Smart Legal Advice Chatbot: Python dependencies
+#
+# Requires Python 3.10 or newer.
+# Install:  pip install -r requirements.txt
+#
+# No third-party packages are needed. The chatbot, web server, accounts, API keys and
+# the optional Google Gemini AI answers all use only the Python standard library
+# (sqlite3, hashlib, http.server, urllib, ...). Gemini needs only GEMINI_API_KEY in
+# backend/.env; see backend/.env.example.
+#
+# Optional, for development:
+# pytest>=8.0
