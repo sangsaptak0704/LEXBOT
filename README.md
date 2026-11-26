@@ -1,5 +1,7 @@
 # Smart Legal Advice Chatbot (LexBot)
 
+**Live demo:** [lexbot-rho.vercel.app](https://lexbot-rho.vercel.app/#signin)
+
 An interactive text chatbot that answers common legal questions by **reasoning**
 over a knowledge base, instead of relying on a black-box model.
 
