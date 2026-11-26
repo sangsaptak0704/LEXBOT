@@ -1,2 +1,2 @@
-# The full dependency list lives in the project root: ../requirements.txt
--r ../requirements.txt
+# No third-party packages are needed: LexBot uses only the Python standard library.
+# See ../requirements.txt for details.

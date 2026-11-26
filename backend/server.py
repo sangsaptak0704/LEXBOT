@@ -81,6 +81,8 @@ SESSION_TTL = 60 * 60           # seconds of inactivity before a session is drop
 MAX_SESSIONS = 1000
 AUTH_COOKIE = "lexbot_auth"
 DB_PATH = os.environ.get("LEXBOT_DB", str(Path(__file__).resolve().parent / "instance" / "lexbot.db"))
+# Set LEXBOT_SECURE_COOKIE=1 when the site is served over HTTPS (e.g. on Vercel).
+SECURE_COOKIE = os.environ.get("LEXBOT_SECURE_COOKIE", "").lower() in ("1", "true", "yes")
 PUBLIC_API = {"/api/health", "/api/greeting", "/api/auth/me", "/api/auth/signup",
               "/api/auth/login", "/api/auth/logout"}
 
@@ -181,7 +183,8 @@ class Handler(BaseHTTPRequestHandler):
 
     @staticmethod
     def _session_cookie(token: str, max_age: int = SESSION_SECONDS) -> str:
-        return f"{AUTH_COOKIE}={token}; HttpOnly; SameSite=Lax; Path=/; Max-Age={max_age}"
+        secure = "; Secure" if SECURE_COOKIE else ""
+        return f"{AUTH_COOKIE}={token}; HttpOnly; SameSite=Lax; Path=/; Max-Age={max_age}{secure}"
 
     def _require_user(self, path: str) -> dict | None:
         """The signed-in user, or None after sending a 401 for protected endpoints."""
